@@ -66,15 +66,11 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
 
 // MARK: - ViewModel
-
 class MapSearchViewModel: NSObject, ObservableObject {
     @Published var searchText: String = "" {
         didSet {
-            if !searchText.isEmpty {
-                performSearch()
-            } else {
-                places = []
-            }
+            debounceTimer?.invalidate()
+            debounceTimer = Timer.scheduledTimer(timeInterval: 0.5, target: self, selector: #selector(performSearch), userInfo: nil, repeats: false)
         }
     }
     @Published var places: [Place] = []
@@ -87,6 +83,12 @@ class MapSearchViewModel: NSObject, ObservableObject {
     
     private var locationManager = LocationManager()
     private let searchQueue = DispatchQueue(label: "searchQueue")
+    private var debounceTimer: Timer?
+    private var requestCount = 0
+    private let maxRequests = 50
+    private let resetTime: TimeInterval = 60
+    private var resetTimer: Timer?
+    private var searchCache = [String: [Place]]()
     
     var directionAngle: Double {
         guard let current = currentLocation,
@@ -108,7 +110,6 @@ class MapSearchViewModel: NSObject, ObservableObject {
         }
     }
     
-    
     func setDestination(place: Place) {
         destination = place.coordinate
         selectedPlace = place
@@ -127,11 +128,32 @@ class MapSearchViewModel: NSObject, ObservableObject {
         }
     }
     
-    func performSearch() {
+    @objc func performSearch() {
+        if requestCount >= maxRequests {
+            print("リクエストの制限を超えました。次のリクエストまで待機します。")
+            return
+        }
+        
+        if let cachedResults = searchCache[searchText] {
+            DispatchQueue.main.async {
+                self.places = cachedResults
+            }
+            return
+        }
+        
         guard let currentLoc = locationManager.currentLocation else {
             places = []
             return
         }
+        
+        requestCount += 1
+        if resetTimer == nil {
+            resetTimer = Timer.scheduledTimer(withTimeInterval: resetTime, repeats: false) { [weak self] _ in
+                self?.requestCount = 0
+                self?.resetTimer = nil
+            }
+        }
+        
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = searchText
         request.region = MKCoordinateRegion(
@@ -151,6 +173,7 @@ class MapSearchViewModel: NSObject, ObservableObject {
                         coordinate: $0.placemark.coordinate
                     )
                 }
+                self.searchCache[self.searchText] = newPlaces
                 DispatchQueue.main.async {
                     self.places = newPlaces
                 }
@@ -165,8 +188,6 @@ class MapSearchViewModel: NSObject, ObservableObject {
     var currentLocation: CLLocationCoordinate2D? {
         locationManager.currentLocation
     }
-    
-    // MARK: Navigation helpers
     
     private var motionManager = CMMotionManager()
     @Published var hasArrived = false
@@ -266,15 +287,47 @@ extension Double {
     func toDegrees() -> Double { self * 180 / .pi }
 }
 
+enum HalfModalType {
+    case small
+    case medium
+    case long
+}
+
+struct CustomMapPinView: View {
+    var place: Place // Place はアノテーションデータのモデルです
+    var action: () -> Void
+
+    var body: some View {
+        VStack {
+            Image(systemName: "mappin.circle.fill")
+                            .resizable()
+                            .frame(width: 24, height: 24) // 小さめのサイズに変更
+                            .foregroundColor(.indigo) // 柔らかい色に変更
+                            .padding(6) // 追加の余白を作成
+                            .background(Color.white.opacity(0.7)) // 少し透明の背景を追加
+                            .clipShape(Circle()) // 背景を円形にする
+            Text(place.name) // 場所の名前を表示する場合
+                .font(.caption)
+                .padding(5)
+                .background(Color.white)
+                .cornerRadius(5)
+                .shadow(radius: 5)
+        }
+        .onTapGesture {
+            action()
+        }
+    }
+}
+
 // MARK: - Views
 struct ContentView: View {
     @StateObject private var vm = MapSearchViewModel()
     @FocusState private var isTextFieldFocused: Bool
     @State private var showNavigation = false
-    @State var show = true
+    @State var halfModalType: HalfModalType = .medium
     @State var position = CGSize.zero
     @State private var viewSize = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-    private let heightRate = 0.58
+    @State private var selectedPlace: Place? // 追加
     @State private var trackingMode: MapUserTrackingMode = .follow
     @State private var isKeyboardVisible = false
     let categories = ["カフェ", "コンビニ", "レストラン", "銀行", "ホテル"] // カテゴリや履歴のデータ
@@ -321,7 +374,7 @@ struct ContentView: View {
                             .focused($isTextFieldFocused)
                             .onChange(of: isTextFieldFocused) {
                                 if isTextFieldFocused {
-                                    show = false
+                                    halfModalType = .long
                                 }
                             }
                         
@@ -348,12 +401,12 @@ struct ContentView: View {
                 }
                 
                 ZStack {
-                    //マップ表示エリア
-                    Map(coordinateRegion: $vm.region, showsUserLocation: true, userTrackingMode: $trackingMode, annotationItems: vm.places) { place in
-                        MapPin(coordinate: place.coordinate)
-                    }
-                    .onTapGesture {
-                        show = true
+                    Map(coordinateRegion: $vm.region, showsUserLocation: true, annotationItems: vm.places) { place in
+                        MapAnnotation(coordinate: place.coordinate) {
+                            CustomMapPinView(place: place, action: {
+                                selectedPlace = place
+                            })
+                        }
                     }
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -379,9 +432,10 @@ struct ContentView: View {
                     .position(x: viewSize.width - 50, y: 50)
                     
                     halfModalView
-                        .cornerRadius(show ? 20 : 0)
-                        .offset(y: show ? viewSize.height * heightRate : 0)
-                        .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.9), value: show)
+                        .cornerRadius(getConerRadius())
+                        .offset(y: getYoffset())
+                        .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.9), value: halfModalType)
+                        .edgesIgnoringSafeArea(.all)
                 }
             }
             .fullScreenCover(isPresented: $showNavigation) {
@@ -392,9 +446,9 @@ struct ContentView: View {
         .onDisappear { self.removeKeyboardObservers() }
         .onChange(of: vm.searchText) {
             if vm.searchText.isEmpty {
-                show = true
+                halfModalType = .medium
             } else {
-                show = false
+                halfModalType = .long
             }
         }
     }
@@ -402,7 +456,7 @@ struct ContentView: View {
     @ViewBuilder
     var halfSheetContent: some View {
         if vm.searchText.isEmpty  {
-            if show {
+            if halfModalType == .medium {
                 VStack(spacing: 8) {
                     Text("地名や駅名を入力して検索してください")
                         .foregroundColor(.gray)
@@ -478,7 +532,7 @@ struct ContentView: View {
                 .cornerRadius(20)
                 .shadow(radius: 10)
                 .onAppear {
-                    show = true
+                    halfModalType = .medium
                 }
             } else {
                 VStack(spacing: 16) {
@@ -489,20 +543,21 @@ struct ContentView: View {
                                     gradient: Gradient(colors: [Color.blue.opacity(0.4), Color.blue.opacity(0.7)]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing))
-                                .frame(width: 50, height: 50)
+                                .frame(width: 100, height: 100)
                             Image(systemName: "magnifyingglass.circle.fill")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 30, height: 30)
+                                .frame(width: 60, height: 60)
                                 .foregroundColor(.white)
                                 .shadow(radius: 3)
                         }
                         
                         Text("地名や駅名を入力して\n検索してください")
                             .foregroundColor(.gray)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 30)
+                        
                     }
                     
                     // カテゴリまたは履歴のボタンを表示
@@ -540,81 +595,145 @@ struct ContentView: View {
                 .shadow(radius: 20)
             }
         } else {
-            List {
-                ForEach(vm.places) { place in
-                    HStack {
-                        Image(systemName: "mappin.and.ellipse")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 40, height: 40)
-                            .foregroundColor(.blue)
-                            .padding(.trailing, 8)
-                        
-                        VStack(alignment: .leading) {
-                            Text(place.name).font(.headline)
-                            Text(place.address)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                        }
-                        
-                        Spacer()
-                        
-                        
-                        HStack {
-                            Image(systemName: "arrow.forward")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                                .foregroundColor(.white)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(vm.places) { place in
+                            Rectangle()
+                                .fill(.clear)
+                                .frame(width: 1, height: 1)
+                                .id(place.id)
                             
-                            VStack {
-                                // 現在地からの距離
-                                if let distance = place.distance {
-                                    Text(distanceString(from: distance))
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
+                            HStack {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 40, height: 40)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 8)
+                                
+                                VStack(alignment: .leading) {
+                                    Text(place.name).font(.headline)
+                                    Text(place.address)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
                                 }
                                 
-                                Button(action: {
-                                    vm.setDestination(place: place)
-                                    showNavigation = true
-                                }) {
-                                    HStack {
-                                        Image(systemName: "arrow.forward.circle.fill")
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 20, height: 20)
-                                            .foregroundColor(.white)
+                                Spacer()
+                                
+                                HStack {
+                                    VStack {
+                                        // 現在地からの距離
+                                        if let distance = place.distance {
+                                            Text(distanceString(from: distance))
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
                                         
-                                        Text("GO!")
-                                            .foregroundColor(.white)
-                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        Button(action: {
+                                            vm.setDestination(place: place)
+                                            showNavigation = true
+                                        }) {
+                                            HStack {
+                                                Image(systemName: "arrow.forward.circle.fill")
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 20, height: 20)
+                                                    .foregroundColor(.white)
+                                                
+                                                Text("GO!")
+                                                    .foregroundColor(.white)
+                                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            }
+                                            .padding(8)
+                                            .background(LinearGradient(
+                                                gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.blue]),
+                                                startPoint: .leading,
+                                                endPoint: .trailing))
+                                            .cornerRadius(10)
+                                            .shadow(radius: 3)
+                                            .contentShape(Rectangle())
+                                            .padding(.trailing, 5)
+                                        }
                                     }
-                                    .padding()
-                                    .background(LinearGradient(
-                                        gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.blue]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing))
-                                    .cornerRadius(10)
-                                    .shadow(radius: 3)
+                                }
+                                .onAppear {
+                                    vm.calculateDistances()
                                 }
                             }
-                        }
-                        .onAppear {
-                            vm.setDestination(place: place)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 80)
+                            .padding(.vertical, 6)
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 1)
+                            .onChange(of: selectedPlace) {
+                                if let selectedPlace = selectedPlace {
+                                    withAnimation {
+                                        proxy.scrollTo(selectedPlace.id, anchor: .top)
+                                    }
+                                }
+                            }
+                            .onTapGesture {
+                                halfModalType = .medium
+                                let zoomLevel = 0.005 // 拡大する程度を調整
+                                let newRegion = MKCoordinateRegion(
+                                    center: place.coordinate,
+                                    span: MKCoordinateSpan(latitudeDelta: zoomLevel, longitudeDelta: zoomLevel)
+                                )
+                                vm.region = newRegion
+                                selectedPlace = place
+                            }
+                            .padding(.top, 10)
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .padding(.top)
+                    
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity)
+                .background(Color(UIColor.systemGroupedBackground)
+                    .edgesIgnoringSafeArea(.all))
+                .onAppear {
+                    halfModalType = .long
                 }
             }
-            .listStyle(.plain)
-            .animation(.default, value: vm.places)
-            .background(Color(UIColor.systemGroupedBackground)
-                .edgesIgnoringSafeArea(.all))
-            .onAppear {
-                show = false
-            }
+        }
+    }
+    
+    func getConerRadius() -> CGFloat {
+        switch halfModalType {
+        case .small:
+            return 20
+        case .medium:
+            return 20
+        case .long:
+            return 0
+        }
+    }
+    
+    func getYoffset() -> CGFloat {
+        switch halfModalType {
+        case .small:
+            return viewSize.height * 0.65
+        case .medium:
+            return viewSize.height * 0.54
+        case .long:
+            return 0
+        }
+    }
+    
+    func getForegroundColor() -> Color {
+        switch halfModalType {
+        case .small:
+            return .white
+        case .medium:
+            return .white
+        case .long:
+            return Color(UIColor.systemGroupedBackground)
         }
     }
     
@@ -646,16 +765,31 @@ struct ContentView: View {
     }
     
     var halfModalView: some View {
-        ZStack {
-            Rectangle()
-                .foregroundColor(.white)
-            VStack {
-                halfSheetContent
-                
-                Spacer()
+            ZStack {
+                Rectangle()
+                    .foregroundColor(getForegroundColor())
+                VStack {
+                    Button(action: {
+                        if halfModalType == .long {
+                            halfModalType = .medium
+                        } else if halfModalType == .medium {
+                            halfModalType = .long
+                        } else {
+                            halfModalType = .medium
+                        }
+                    }) {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(.black .opacity(0.5))
+                            .frame(width: 60, height: 5)
+                            .padding(.top)
+                    }
+                    
+                    halfSheetContent
+                    
+                    Spacer()
+                }
             }
         }
-    }
 }
 
 struct NavigationViewScreen: View {
