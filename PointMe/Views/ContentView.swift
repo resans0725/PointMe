@@ -330,6 +330,8 @@ struct ContentView: View {
     @State private var selectedPlace: Place? // 追加
     @State private var trackingMode: MapUserTrackingMode = .follow
     @State private var isKeyboardVisible = false
+    @State private var isShowSplashScreen = true
+    @State private var isMenuPresented = false
     let categories = ["カフェ", "コンビニ", "レストラン", "銀行", "ホテル"] // カテゴリや履歴のデータ
     
     private func addKeyboardObservers() {
@@ -348,19 +350,72 @@ struct ContentView: View {
     }
     
     var body: some View {
+        if isShowSplashScreen {
+            splashView
+        } else {
+            contentView
+        }
+    }
+    
+    @State private var logoScale: CGFloat = 0.6
+    @State private var logoOpacity: Double = 0.0
+
+    var splashView: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [Color.orange, Color.orange.opacity(0.7)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(.michipass)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+                    .shadow(radius: 10)
+
+                Text("みちパス")
+                    .font(.system(size: 28).bold())
+                    .foregroundColor(.white)
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5)) {
+                logoScale = 1.0
+                logoOpacity = 1.0
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                withAnimation {
+                    isShowSplashScreen = false
+                }
+            }
+        }
+    }
+    
+    var contentView: some View {
         NavigationView {
             VStack {
                 HStack {
                     Button(action: {
-                        // ボタンのアクションをここに書く
+                        isMenuPresented = true
                     }) {
-                        Image(systemName: "list.bullet")
+                        Image(systemName: "line.3.horizontal")
                             .resizable()
                             .foregroundColor(.gray)
                             .frame(width: 24, height: 24)
                     }
                     .padding(.leading, 15)
                     .padding(.top, 15)
+                    .sheet(isPresented: $isMenuPresented) {
+                        MenuSheetView()
+                    }
                     
                     // 検索バー
                     ZStack {
@@ -401,7 +456,7 @@ struct ContentView: View {
                 }
                 
                 ZStack {
-                    Map(coordinateRegion: $vm.region, showsUserLocation: true, annotationItems: vm.places) { place in
+                    Map(coordinateRegion: $vm.region, showsUserLocation: true, userTrackingMode: $trackingMode, annotationItems: vm.places) { place in
                         MapAnnotation(coordinate: place.coordinate) {
                             CustomMapPinView(place: place, action: {
                                 selectedPlace = place
@@ -540,7 +595,7 @@ struct ContentView: View {
                         ZStack {
                             Circle()
                                 .fill(LinearGradient(
-                                    gradient: Gradient(colors: [Color.blue.opacity(0.4), Color.blue.opacity(0.7)]),
+                                    gradient: Gradient(colors: [Color.orange.opacity(0.4), Color.orange.opacity(0.7)]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing))
                                 .frame(width: 100, height: 100)
@@ -609,7 +664,7 @@ struct ContentView: View {
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 40, height: 40)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.orange)
                                     .padding(.horizontal, 8)
                                 
                                 VStack(alignment: .leading) {
@@ -648,7 +703,7 @@ struct ContentView: View {
                                             }
                                             .padding(8)
                                             .background(LinearGradient(
-                                                gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.blue]),
+                                                gradient: Gradient(colors: [Color.orange.opacity(0.8), Color.orange]),
                                                 startPoint: .leading,
                                                 endPoint: .trailing))
                                             .cornerRadius(10)
@@ -692,6 +747,12 @@ struct ContentView: View {
                     .padding(.top)
                     
                     Spacer()
+                    
+                    if halfModalType == .medium {
+                        Rectangle()
+                            .fill(.clear)
+                            .frame(width: 1, height: 700)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: .infinity)
@@ -792,6 +853,42 @@ struct ContentView: View {
         }
 }
 
+struct MenuSheetView: View {
+    var body: some View {
+        NavigationView {
+            List {
+                Button {
+                    openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b804497cdd7319678cf81?pvs=4")
+                } label: {
+                    Label("プライバシーポリシー", systemImage: "lock.shield")
+                        .foregroundColor(.black)
+                }
+
+                Button {
+                    openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b80f6a9b4ee047228eb5e?pvs=4")
+                } label: {
+                    Label("利用規約", systemImage: "doc.text")
+                        .foregroundColor(.black)
+                }
+
+                Button {
+                    openURL("https://docs.google.com/forms/d/e/1FAIpQLScKdH6VkusLr3sSMfqbtbFgsLBW2JzhZ3uYpSOdpyvZo6x2nQ/viewform?usp=dialog")
+                } label: {
+                    Label("問い合わせ", systemImage: "envelope")
+                        .foregroundColor(.black)
+                }
+            }
+            .navigationTitle("メニュー")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url)
+    }
+}
+
 struct NavigationViewScreen: View {
     @ObservedObject var viewModel: MapSearchViewModel
     @Binding var isPresented: Bool
@@ -840,7 +937,7 @@ struct NavigationViewScreen: View {
                 
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(Color.orange.opacity(0.1))
                         .frame(width: 200, height: 200)
                     Image(systemName: "arrow.up")
                         .resizable()
@@ -848,7 +945,7 @@ struct NavigationViewScreen: View {
                         .frame(width: 100, height: 100)
                         .rotationEffect(.degrees(viewModel.directionAngle))
                         .animation(.easeInOut(duration: 0.2), value: viewModel.directionAngle)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.orange)
                 }
                 
                 VStack {
@@ -858,7 +955,7 @@ struct NavigationViewScreen: View {
                     Text(formattedDistance)
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.orange)
                 }
                 .padding(.top, 16)
                 
@@ -871,34 +968,42 @@ struct NavigationViewScreen: View {
                 
                 Spacer()
                 
-                Button(action: {
-                    isShowingMap = true
-                }) {
-                    Text("地図表示")
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal)
-                
-                Button(action: {
-                    isPresented = false
-                    viewModel.destination = nil
-                    viewModel.selectedPlace = nil
-                    viewModel.hasArrived = false
-                }) {
-                    Text("戻る")
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(12)
+                VStack(spacing: 12) {
+                    Button("地図表示") {
+                        isShowingMap = true
+                    }
+                    .buttonStyle(MichipassButtonStyle(backgroundColor: .orange))
+
+                    Button("戻る") {
+                        isPresented = false
+                        viewModel.destination = nil
+                        viewModel.selectedPlace = nil
+                        viewModel.hasArrived = false
+                    }
+                    .buttonStyle(MichipassButtonStyle(backgroundColor: .gray))
                 }
                 .padding(.horizontal)
             }
         }
         .padding()
         .background(Color(.systemGroupedBackground).edgesIgnoringSafeArea(.all))
+    }
+}
+
+struct MichipassButtonStyle: ButtonStyle {
+    var backgroundColor: Color
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .semibold))
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(backgroundColor)
+            .foregroundColor(.white)
+            .cornerRadius(16)
+            .shadow(color: backgroundColor.opacity(0.3), radius: 4, x: 0, y: 2)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
