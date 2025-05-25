@@ -438,7 +438,7 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 16) {
+            VStack(spacing: 0) {
                 Image(.michipass)
                     .resizable()
                     .scaledToFit()
