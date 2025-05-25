@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2A86964F2DE2E0E200190FFD /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 2A86964E2DE2E0E200190FFD /* FirebaseAnalytics */; };
+		2A8696522DE2E15E00190FFD /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 2A8696512DE2E15E00190FFD /* GoogleMobileAds */; };
+		2A8696542DE2E17C00190FFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8696532DE2E17C00190FFD /* AppDelegate.swift */; };
+		2A8696562DE2E35900190FFD /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2A8696552DE2E35900190FFD /* GoogleService-Info.plist */; };
+		2A8696582DE2E56100190FFD /* BannerAdView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8696572DE2E56100190FFD /* BannerAdView.swift */; };
 		2ACB5D2D2DD0C63300E47C20 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACB5D2A2DD0C63300E47C20 /* ContentView.swift */; };
 		2ACB5D2E2DD0C63300E47C20 /* PointMeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACB5D2B2DD0C63300E47C20 /* PointMeApp.swift */; };
 		2ACB5D2F2DD0C63300E47C20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2ACB5D292DD0C63300E47C20 /* Assets.xcassets */; };
@@ -26,6 +31,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A170A672DE2EAF2007D4244 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		2A8696532DE2E17C00190FFD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		2A8696552DE2E35900190FFD /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		2A8696572DE2E56100190FFD /* BannerAdView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerAdView.swift; sourceTree = "<group>"; };
 		2ACB5D182DD0C5C000E47C20 /* PointMe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PointMe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2ACB5D292DD0C63300E47C20 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2ACB5D2A2DD0C63300E47C20 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -40,6 +49,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A8696522DE2E15E00190FFD /* GoogleMobileAds in Frameworks */,
+				2A86964F2DE2E0E200190FFD /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				2ACB5D2A2DD0C63300E47C20 /* ContentView.swift */,
+				2A8696572DE2E56100190FFD /* BannerAdView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -75,7 +87,9 @@
 		2ACB5D2C2DD0C63300E47C20 /* PointMe */ = {
 			isa = PBXGroup;
 			children = (
+				2A170A672DE2EAF2007D4244 /* Info.plist */,
 				2ACB5D2B2DD0C63300E47C20 /* PointMeApp.swift */,
+				2A8696532DE2E17C00190FFD /* AppDelegate.swift */,
 				2ACB5D282DD0C63300E47C20 /* Views */,
 				2ACB5D322DD0C67D00E47C20 /* ViewModel */,
 				2ACB5D312DD0C66800E47C20 /* Model */,
@@ -89,6 +103,7 @@
 			isa = PBXGroup;
 			children = (
 				2ACB5D292DD0C63300E47C20 /* Assets.xcassets */,
+				2A8696552DE2E35900190FFD /* GoogleService-Info.plist */,
 			);
 			path = Resource;
 			sourceTree = "<group>";
@@ -141,6 +156,8 @@
 			);
 			name = PointMe;
 			packageProductDependencies = (
+				2A86964E2DE2E0E200190FFD /* FirebaseAnalytics */,
+				2A8696512DE2E15E00190FFD /* GoogleMobileAds */,
 			);
 			productName = PointMe;
 			productReference = 2ACB5D182DD0C5C000E47C20 /* PointMe.app */;
@@ -170,6 +187,10 @@
 			);
 			mainGroup = 2ACB5D0F2DD0C5C000E47C20;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2A86964D2DE2E0E200190FFD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				2A8696502DE2E15E00190FFD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2ACB5D192DD0C5C000E47C20 /* Products */;
 			projectDirPath = "";
@@ -186,6 +207,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2ACB5D2F2DD0C63300E47C20 /* Assets.xcassets in Resources */,
+				2A8696562DE2E35900190FFD /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,8 +218,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A8696542DE2E17C00190FFD /* AppDelegate.swift in Sources */,
 				2ACB5D2D2DD0C63300E47C20 /* ContentView.swift in Sources */,
 				2ACB5D2E2DD0C63300E47C20 /* PointMeApp.swift in Sources */,
+				2A8696582DE2E56100190FFD /* BannerAdView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -336,6 +360,7 @@
 				DEVELOPMENT_TEAM = WN2XF964UU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PointMe/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "みちパス";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "バックグラウンドで位置情報を使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地と目的地の案内に位置情報を使用します。";
@@ -375,6 +400,7 @@
 				DEVELOPMENT_TEAM = WN2XF964UU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PointMe/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "みちパス";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "バックグラウンドで位置情報を使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地と目的地の案内に位置情報を使用します。";
@@ -425,6 +451,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2A86964D2DE2E0E200190FFD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.13.0;
+			};
+		};
+		2A8696502DE2E15E00190FFD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2A86964E2DE2E0E200190FFD /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2A86964D2DE2E0E200190FFD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		2A8696512DE2E15E00190FFD /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2A8696502DE2E15E00190FFD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2ACB5D102DD0C5C000E47C20 /* Project object */;
 }

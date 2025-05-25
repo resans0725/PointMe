@@ -334,6 +334,14 @@ struct ContentView: View {
     @State private var isMenuPresented = false
     let categories = ["カフェ", "コンビニ", "レストラン", "銀行", "ホテル"] // カテゴリや履歴のデータ
     
+    var nativeAdID: String {
+    #if DEBUG
+    return "ca-app-pub-3940256099942544/3986624511"// テスト広告ID
+    #else
+    return "ca-app-pub-1909140510546146/1328849331"
+    #endif
+    }
+    
     private func addKeyboardObservers() {
         NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { _ in
             self.isKeyboardVisible = true
@@ -653,7 +661,14 @@ struct ContentView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(vm.places) { place in
+                        ForEach(Array(vm.places.enumerated()), id: \.element.id) { index, place in
+                            if (index + 1) % 5 == 0 {
+                                BannerAdView()
+                                    .frame(height: 80)
+                                    .padding(.horizontal, 8)
+                                    .padding(.top)
+                            }
+                            
                             Rectangle()
                                 .fill(.clear)
                                 .frame(width: 1, height: 1)
@@ -856,30 +871,36 @@ struct ContentView: View {
 struct MenuSheetView: View {
     var body: some View {
         NavigationView {
-            List {
-                Button {
-                    openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b804497cdd7319678cf81?pvs=4")
-                } label: {
-                    Label("プライバシーポリシー", systemImage: "lock.shield")
-                        .foregroundColor(.black)
-                }
+            VStack {
+                List {
+                    Button {
+                        openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b804497cdd7319678cf81?pvs=4")
+                    } label: {
+                        Label("プライバシーポリシー", systemImage: "lock.shield")
+                            .foregroundColor(.black)
+                    }
 
-                Button {
-                    openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b80f6a9b4ee047228eb5e?pvs=4")
-                } label: {
-                    Label("利用規約", systemImage: "doc.text")
-                        .foregroundColor(.black)
-                }
+                    Button {
+                        openURL("https://square-hockey-7b2.notion.site/1fdc71ad3e3b80f6a9b4ee047228eb5e?pvs=4")
+                    } label: {
+                        Label("利用規約", systemImage: "doc.text")
+                            .foregroundColor(.black)
+                    }
 
-                Button {
-                    openURL("https://docs.google.com/forms/d/e/1FAIpQLScKdH6VkusLr3sSMfqbtbFgsLBW2JzhZ3uYpSOdpyvZo6x2nQ/viewform?usp=dialog")
-                } label: {
-                    Label("問い合わせ", systemImage: "envelope")
-                        .foregroundColor(.black)
+                    Button {
+                        openURL("https://docs.google.com/forms/d/e/1FAIpQLScKdH6VkusLr3sSMfqbtbFgsLBW2JzhZ3uYpSOdpyvZo6x2nQ/viewform?usp=dialog")
+                    } label: {
+                        Label("問い合わせ", systemImage: "envelope")
+                            .foregroundColor(.black)
+                    }
                 }
+                .navigationTitle("メニュー")
+                .navigationBarTitleDisplayMode(.inline)
+                
+                BannerAdView()
+                    .frame(height: 400)
+                    .padding(.horizontal, 20)
             }
-            .navigationTitle("メニュー")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
@@ -952,15 +973,23 @@ struct NavigationViewScreen: View {
                     Text("残り距離")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(formattedDistance)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.orange)
+                    
+                    if viewModel.hasArrived {
+                        Text("0m")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    } else {
+                        Text(formattedDistance)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    }
                 }
                 .padding(.top, 16)
                 
                 if viewModel.hasArrived {
-                    Text("🎉 到着しました！")
+                    Text("到着！")
                         .font(.title)
                         .foregroundColor(.green)
                         .padding()
