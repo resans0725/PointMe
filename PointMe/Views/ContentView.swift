@@ -4,6 +4,7 @@ import CoreLocation
 import CoreHaptics
 import CoreMotion
 import ActivityKit
+import AppTrackingTransparency
 
 // MARK: - Models
 
@@ -26,8 +27,10 @@ struct Place: Identifiable, Equatable {
 // MARK: - Location Manager
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var isShowSplashScreen: Bool = true
     @Published var currentLocation: CLLocationCoordinate2D?
     @Published var heading: CLHeading?  // ← 追加
+    @Published var isAuthorizedAlways: Bool = false
     
     private let manager = CLLocationManager()
     
@@ -39,6 +42,36 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
         manager.startUpdatingHeading() // ← 追加
+    }
+    
+    func requestTrackingPermissionIfNeeded() {
+        ATTrackingManager.requestTrackingAuthorization { status in
+            switch status {
+            case .authorized:
+                print("Tracking authorized")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    withAnimation {
+                        self.isShowSplashScreen = false
+                    }
+                }
+            case .denied, .restricted:
+                print("Tracking denied")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    withAnimation {
+                        self.isShowSplashScreen = false
+                    }
+                }
+            case .notDetermined:
+                print("Not determined – まだダイアログが出ていません")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    withAnimation {
+                        self.isShowSplashScreen = true
+                    }
+                }
+            @unknown default:
+                break
+            }
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -54,6 +87,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             self.heading = newHeading
         }
     }
+    
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            isAuthorizedAlways = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            self.requestTrackingPermissionIfNeeded()
+        }
+    }
+    
+    
     
     func locationManagerShouldDisplayHeadingCalibration(_ manager: CLLocationManager) -> Bool {
         return true
@@ -81,7 +126,7 @@ class MapSearchViewModel: NSObject, ObservableObject {
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
     )
     
-    private var locationManager = LocationManager()
+    var locationManager = LocationManager()
     private let searchQueue = DispatchQueue(label: "searchQueue")
     private var debounceTimer: Timer?
     private var requestCount = 0
@@ -319,6 +364,26 @@ struct CustomMapPinView: View {
     }
 }
 
+struct PermissionWarningView: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("位置情報の使用が許可されていません。")
+                .foregroundColor(.red)
+            Button("設定を開く") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .background(Color(.systemBackground).opacity(0.9))
+        .cornerRadius(12)
+        .shadow(radius: 4)
+    }
+}
+
+
 // MARK: - Views
 struct ContentView: View {
     @StateObject private var vm = MapSearchViewModel()
@@ -330,17 +395,8 @@ struct ContentView: View {
     @State private var selectedPlace: Place? // 追加
     @State private var trackingMode: MapUserTrackingMode = .follow
     @State private var isKeyboardVisible = false
-    @State private var isShowSplashScreen = true
     @State private var isMenuPresented = false
     let categories = ["カフェ", "コンビニ", "レストラン", "銀行", "ホテル"] // カテゴリや履歴のデータ
-    
-    var nativeAdID: String {
-    #if DEBUG
-    return "ca-app-pub-3940256099942544/3986624511"// テスト広告ID
-    #else
-    return "ca-app-pub-1909140510546146/1328849331"
-    #endif
-    }
     
     private func addKeyboardObservers() {
         NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { _ in
@@ -358,10 +414,15 @@ struct ContentView: View {
     }
     
     var body: some View {
-        if isShowSplashScreen {
+        if vm.locationManager.isShowSplashScreen {
             splashView
         } else {
             contentView
+                .overlay {
+                    if !vm.locationManager.isAuthorizedAlways {
+                        PermissionWarningView()
+                    }
+                }
         }
     }
     
@@ -386,9 +447,10 @@ struct ContentView: View {
                     .opacity(logoOpacity)
                     .shadow(radius: 10)
 
-                Text("みちパス")
-                    .font(.system(size: 28).bold())
-                    .foregroundColor(.white)
+                Image(.michipassTitle)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80)
                     .scaleEffect(logoScale)
                     .opacity(logoOpacity)
             }
@@ -397,12 +459,6 @@ struct ContentView: View {
             withAnimation(.easeOut(duration: 0.5)) {
                 logoScale = 1.0
                 logoOpacity = 1.0
-            }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                withAnimation {
-                    isShowSplashScreen = false
-                }
             }
         }
     }
@@ -779,6 +835,8 @@ struct ContentView: View {
             }
         }
     }
+    
+    
     
     func getConerRadius() -> CGFloat {
         switch halfModalType {
