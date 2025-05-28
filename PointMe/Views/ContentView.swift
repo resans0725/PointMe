@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 import MapKit
 import CoreLocation
 import CoreHaptics
@@ -159,7 +160,6 @@ class MapSearchViewModel: NSObject, ObservableObject {
         destination = place.coordinate
         selectedPlace = place
         hasArrived = false
-        calculateDistances()
     }
     
     func calculateDistances() {
@@ -221,6 +221,11 @@ class MapSearchViewModel: NSObject, ObservableObject {
                 self.searchCache[self.searchText] = newPlaces
                 DispatchQueue.main.async {
                     self.places = newPlaces
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        self.calculateDistances()
+                    }
+                    
                 }
             } else {
                 DispatchQueue.main.async {
@@ -566,6 +571,7 @@ struct ContentView: View {
         .onChange(of: vm.searchText) {
             if vm.searchText.isEmpty {
                 halfModalType = .medium
+                hideKeyboard()
             } else {
                 halfModalType = .long
             }
@@ -707,6 +713,10 @@ struct ContentView: View {
                         }
                     }
                     .padding()
+                    
+                    if isKeyboardVisible {
+                        Spacer()
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -784,9 +794,6 @@ struct ContentView: View {
                                         }
                                     }
                                 }
-                                .onAppear {
-                                    vm.calculateDistances()
-                                }
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 80)
@@ -802,6 +809,7 @@ struct ContentView: View {
                                 }
                             }
                             .onTapGesture {
+                                hideKeyboard()
                                 halfModalType = .medium
                                 let zoomLevel = 0.005 // 拡大する程度を調整
                                 let newRegion = MKCoordinateRegion(
@@ -833,10 +841,11 @@ struct ContentView: View {
                     halfModalType = .long
                 }
             }
+            .onTapGesture {
+                hideKeyboard()
+            }
         }
     }
-    
-    
     
     func getConerRadius() -> CGFloat {
         switch halfModalType {
@@ -978,6 +987,13 @@ struct NavigationViewScreen: View {
         return dist > 1000 ? String(format: "%.1f km", dist / 1000) : String(format: "%.0f m", dist)
     }
     
+    func requestReviewIfAppropriate() {
+        if let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 24) {
             if isShowingMap {
@@ -1051,6 +1067,9 @@ struct NavigationViewScreen: View {
                         .font(.title)
                         .foregroundColor(.green)
                         .padding()
+                        .onAppear {
+                            requestReviewIfAppropriate()
+                        }
                 }
                 
                 Spacer()
